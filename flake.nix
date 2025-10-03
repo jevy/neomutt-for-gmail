@@ -29,18 +29,18 @@
           width = 20;
         };
         settings = {
-          virtual_spoolfile = true;
+          virtual_spoolfile = "yes";
           nm_default_url = "notmuch://$HOME/Mail";
           nm_query_type = "threads";
           sort = "threads";
           sort_aux = "reverse-last-date-received";
           index_format = "%4C %Z %{%b %d} %-15.15L (%?l?%4l&%4c?) %s";
-          pager_index_lines = 10;
-          pager_context = 3;
-          pager_stop = true;
-          menu_scroll = true;
-          markers = false;
-          auto_tag = true;
+          pager_index_lines = "10";
+          pager_context = "3";
+          pager_stop = "yes";
+          menu_scroll = "yes";
+          markers = "no";
+          auto_tag = "yes";
         };
         binds = [
           { map = [ "index" "pager" ]; key = "g"; action = "noop"; }
@@ -63,6 +63,44 @@
           virtual-mailboxes "All Mail" "notmuch://?query=*"
         '';
       };
+    };
+
+    homeConfigurations.example = home-manager.lib.homeManagerConfiguration {
+      pkgs = nixpkgs.legacyPackages.x86_64-linux;
+      
+      modules = [
+        self.homeManagerModules.default
+        {
+          home.username = "user";
+          home.homeDirectory = "/home/user";
+          home.stateVersion = "23.11";
+          
+          programs.home-manager.enable = true;
+          
+          accounts.email.accounts.gmail = {
+            address = "your-email@gmail.com";
+            userName = "your-email@gmail.com";
+            flavor = "gmail.com";
+            passwordCommand = "echo 'change-me'";
+            realName = "Your Name";
+            primary = true;
+            
+            maildir.path = "gmail";
+            
+            lieer = {
+              enable = true;
+              sync = {
+                enable = true;
+                frequency = "*:0/5";
+              };
+            };
+            
+            notmuch.enable = true;
+            msmtp.enable = true;
+            neomutt.enable = true;
+          };
+        }
+      ];
     };
   };
 }
