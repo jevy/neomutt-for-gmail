@@ -41,6 +41,8 @@ A Nix flake providing Gmail-optimized configuration for neomutt, lieer, and notm
           
           programs.home-manager.enable = true;
           
+          services.lieer.enable = true;
+          
           accounts.email.accounts.gmail = {
             address = "your-email@gmail.com";
             userName = "your-email@gmail.com";
@@ -48,7 +50,6 @@ A Nix flake providing Gmail-optimized configuration for neomutt, lieer, and notm
             passwordCommand = "pass show email/gmail";
             realName = "Your Name";
             primary = true;
-            
             maildir.path = "gmail";
             
             lieer = {
@@ -212,6 +213,24 @@ Home-manager already has modules for lieer, notmuch, and neomutt. This flake pro
 4. **One-line import** instead of copying configuration
 
 Think of it as a "batteries included" starting point that you can customize.
+
+## Testing
+
+Want to test the setup without affecting your main system? Use the included VM configuration:
+
+```bash
+# Build and run the test VM
+nix build ./vm-test#nixosConfigurations.vm-test.config.system.build.vm
+./result/bin/run-*-vm
+```
+
+The VM includes:
+- Pre-configured neomutt-gmail setup
+- Test Gmail account with failing credentials
+- All necessary packages installed
+- Isolated environment for testing
+
+See [TESTING.md](./TESTING.md) for more testing options.
 
 ## Resources
 

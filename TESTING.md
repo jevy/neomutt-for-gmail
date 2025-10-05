@@ -4,40 +4,56 @@ This guide explains how to safely test the neomutt-gmail flake without affecting
 
 ## Option 1: NixOS VM (Safest)
 
-Create a NixOS VM to test the complete setup:
-
-```nix
-# vm-test.nix
-{ config, pkgs, ... }:
-
-{
-  imports = [ <nixpkgs/nixos/modules/virtualisation/qemu-vm.nix> ];
-
-  users.users.testuser = {
-    isNormalUser = true;
-    password = "test";
-    extraGroups = [ "wheel" ];
-  };
-
-  virtualisation = {
-    memorySize = 2048;
-    cores = 2;
-  };
-
-  environment.systemPackages = with pkgs; [
-    home-manager
-    git
-  ];
-}
-```
+Use the included VM test flake to test the complete setup in an isolated environment:
 
 Build and run:
 ```bash
-nixos-rebuild build-vm -I nixos-config=./vm-test.nix
+nix build ./vm-test#nixosConfigurations.vm-test.config.system.build.vm
 ./result/bin/run-*-vm
 ```
 
-Inside the VM, set up home-manager with your flake.
+Inside the VM, you can test the neomutt setup with failing credentials:
+```bash
+# Login as testuser (password: test)
+su - testuser
+
+# Check the Mail directory structure
+ls -la ~/Mail/
+ls -la ~/Mail/gmail/
+
+# Initialize lieer (required before systemd service can run)
+cd ~/Mail/gmail
+gmi init test-email@gmail.com
+
+# Try to authenticate (will fail due to invalid credentials - expected)
+gmi auth
+
+# Check lieer systemd services (they will fail until gmi auth succeeds)
+systemctl --user list-timers | grep lieer
+systemctl --user status lieer-gmail.service
+systemctl --user status lieer-gmail.timer
+
+# View lieer service logs (will show authentication errors)
+journalctl --user -u lieer-gmail.service -f
+# Or view all logs:
+journalctl --user -u lieer-gmail.service --no-pager
+
+# Manually trigger a sync to see the error
+gmi sync
+
+# Launch neomutt to see the configuration
+neomutt
+```
+
+**Note**: The lieer systemd service will fail until you successfully run `gmi auth` with valid credentials. This is expected behavior for the test environment with invalid credentials.
+
+The VM comes pre-configured with:
+- The neomutt-gmail flake imported and configured
+- A test Gmail account (`test-email@gmail.com`) with invalid credentials
+- All necessary packages (neomutt, lieer, notmuch, muttdown)
+- 2GB RAM and 2 CPU cores
+
+This allows you to test the setup flow without affecting real accounts or your main system.
 
 ## Option 2: Docker/Podman Container
 

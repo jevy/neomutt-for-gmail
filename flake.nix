@@ -16,7 +16,7 @@
       muttdownPkg = muttdown.packages.${pkgs.system}.default;
     in {
       options.accounts.email.accounts = lib.mkOption {
-        type = lib.types.attrsOf (lib.types.submodule {
+        type = lib.types.attrsOf (lib.types.submodule ({ config, ... }: {
           config = {
             lieer = {
               enable = lib.mkDefault true;
@@ -30,7 +30,7 @@
             msmtp.enable = lib.mkDefault true;
             neomutt.enable = lib.mkDefault true;
           };
-        });
+        }));
       };
 
       config = {
@@ -41,7 +41,18 @@
         programs.msmtp.enable = lib.mkDefault true;
         programs.neomutt.enable = lib.mkDefault true;
         
+        services.lieer.enable = lib.mkDefault true;
+        
         programs.notmuch.new.ignore = [ "/.*[.](json|lock|bak)$/" ];
+
+        home.activation.lieerInit = lib.hm.dag.entryAfter ["writeBoundary"] ''
+          ${lib.concatMapStringsSep "\n" (account: ''
+            if [ ! -f "${account.maildir.absPath}/.gmailieer.json" ]; then
+              $DRY_RUN_CMD mkdir -p "${account.maildir.absPath}"
+              $DRY_RUN_CMD ${pkgs.lieer}/bin/gmi -C "${account.maildir.absPath}" init "${account.address}" || true
+            fi
+          '') (lib.filter (a: a.lieer.enable or false) (lib.attrValues config.accounts.email.accounts))}
+        '';
 
         programs.neomutt = {
           vimKeys = lib.mkDefault true;
@@ -97,9 +108,11 @@
         {
           home.username = "user";
           home.homeDirectory = "/home/user";
-          home.stateVersion = "23.11";
+          home.stateVersion = "25.05";
           
           programs.home-manager.enable = true;
+          
+          services.lieer.enable = true;
           
           accounts.email.accounts.gmail = {
             address = "your-email@gmail.com";
