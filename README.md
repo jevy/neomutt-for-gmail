@@ -1,20 +1,37 @@
 # Neomutt for Gmail
 
-A Nix flake providing Gmail-optimized configuration for neomutt, lieer, and notmuch. Get started with Gmail in neomutt with sensible defaults and Gmail-style keybindings.
+Neomutt is great to burn through email really fast. When email was hosted on disperate servers, we would all smash together sendmail, postfix and debate between `mbox` and `Maildir` formats. Imap was a great evolution to keep the data on the server, but for those of us using gmail, imap is a second class citizen.
 
-## What This Provides
+There have been some really nice initiatives to make things easier for those who want to access massive repositories of email, while using gmail (or Google Workspace) as your email provider.
 
-- **Gmail-optimized neomutt configuration** with virtual mailboxes, keybindings, and thread-based sorting
-- **Lieer** for efficient Gmail sync with sensible defaults
-- **Notmuch** for fast email indexing and search
-- **Muttdown** for composing emails in Markdown with automatic HTML conversion
-- **Virtual mailboxes** for Inbox, Unread, Starred, Sent, Drafts, and All Mail
-- **Gmail-style keybindings** (S for spam, A for archive, I for inbox)
-- **Vim keybindings** and sidebar navigation
+- [Lieer](https://github.com/gauteh/lieer) - Uses the Google APIs for fetching, send email, managing labels and stuff
+- [Notmuch](https://github.com/notmuch/notmuch) - A lightweight database designed for managing email and making searching for stuff FAST. 
+- [Neomutt](https://gnithub.com/neomutt/neomutt) - The evoluation of the original `mutt` client with a bunch of features. Can use `notmuch` as the backend for email.
+- [Mutt-Wizard](https://github.com/LukeSmithxyz/mutt-wizard) - A really sophisticated system for getting a neomutt setup. Leveraging the keybindings here.
+
+Years ago, getting all these to play nicely together took many hours of work. **This repo is an effort to make it as turn key as possible to get you using neomutt with your gmail account**.
+
+## Opinions
+
+- *Linux only (for now) - Lieer isn't really setup for Mac it seems.
+-  Instead of a stack of instructions for you to follow, [Home Manager](https://github.com/nix-community/home-manager) (A system and dot file generator for any linux or darwin based system) has a lot of work in tying the above systems together. This repo takes it further with intelligent defaults for gmail.
+- *Plaintext is dead* - Let's face it, no one sends plaintext anymore. This repo embraces the reality that HTML is the standard. Thankfully, [muttdown](https://github.com/jevy/muttdown) let's us work in markdown, and when we send our email, "mark it up" to HTML.
+- *Minimally functional as possible* - I don't want to have to spend a ton of time maintaining this. Thankfully home-manager has done most of the work to make the configuration pretty easy. That said, because we are using Nix, you can extend/overwrite whatever you want.
 
 ## Quick Start
 
-### 1. Add to your flake
+### 1. Install Nix (5 minutes)
+
+Practically, Nix is really a nice, functional language that will build packages into isolated directories and use symlinks to connect them into your system. It has the [largest repository of packages}(https://repology.org/repositories/statistics/total) (eat it Arch!).
+
+The best way is to install [Determinate System's Nix Installer](https://github.com/DeterminateSystems/nix-installer). 
+
+### 2. Configure your home manager email setup
+
+Below is an example "flake" (like a declarative combinations of both dot file configs and packages) that will:
+
+- Pull in `home-manager` - This has all the modules and configuration for lieer, neomutt, notmuch etc.
+- Pull in `neomutt-gmail` - The repo you're looking at here. It wires together the `home-manager` setup for `gmail`/`google workspace` defaults.
 
 ```nix
 {
@@ -37,7 +54,7 @@ A Nix flake providing Gmail-optimized configuration for neomutt, lieer, and notm
         {
           home.username = "yourusername";
           home.homeDirectory = "/home/yourusername";
-          home.stateVersion = "23.11";
+          home.stateVersion = "25.04";
           
           programs.home-manager.enable = true;
           
@@ -71,13 +88,15 @@ A Nix flake providing Gmail-optimized configuration for neomutt, lieer, and notm
 }
 ```
 
-### 2. Activate your configuration
+### 3. Activate your configuration
+
+TODO: Gotta confirm this
 
 ```bash
 home-manager switch --flake .#yourusername
 ```
 
-### 3. Set up Gmail API credentials
+### 4. Set up Gmail API credentials
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project
@@ -85,74 +104,33 @@ home-manager switch --flake .#yourusername
 4. Create OAuth2 credentials (Desktop application)
 5. Download the credentials JSON file
 
-### 4. Initialize lieer
+### 5. Bootstrap notmuch
 
 ```bash
-cd ~/Mail/gmail
-gmi init your-email@gmail.com
-gmi auth
-gmi sync
-```
-
-### 5. Initialize notmuch
-
-```bash
+cd ~/Maildir
 notmuch new
 ```
 
-### 6. Launch neomutt
+### 5. Bootstrap lieer to build the `.gmailieer.json` config
+
+```bash
+cd ~/Maildir/gmail
+gmi init your-email@gmail.com
+gmi sync
+```
+
+### 6. That's it! Launch neomutt
 
 ```bash
 neomutt
 ```
 
-## What's Configured
-
-### Lieer
-- Enabled by default with automatic sync
-- Drops non-existing labels automatically
-- Ignores "important" label from Gmail
-- Ignores lieer metadata files in notmuch
-
-### Notmuch
-- Enabled by default
-- Configured to ignore `.json`, `.lock`, `.bak` files
-
-### Neomutt
-- **Virtual mailboxes** powered by notmuch:
-  - Inbox (`tag:inbox`)
-  - Unread (`tag:unread`)
-  - Starred (`tag:starred`)
-  - Sent (`tag:sent`)
-  - Drafts (`tag:draft`)
-  - All Mail (`*`)
-
-- **Gmail-style keybindings**:
-  - `S` - Mark as spam and remove from inbox
-  - `A` - Archive (remove from inbox)
-  - `I` - Move to inbox
-  - `gi` - Go to inbox
-  - `ga` - View entire thread
-  - `\\` - Create virtual folder from query
-  - `L` - Limit current view
-
-- **Display settings**:
-  - Thread-based sorting
-  - Vim keybindings
-  - Sidebar enabled (20 chars wide)
-  - 10 lines of index in pager view
-
-### Muttdown
-- Automatically converts Markdown emails to HTML
-- Enabled by default as the sendmail command
-- Supports inline images, code blocks, and rich formatting
-
-### MSMTP
-- Enabled by default for SMTP transport
 
 ## Customization
 
 You can override or extend any settings:
+
+Either in the [extraConfig](https://nix-community.github.io/home-manager/options.xhtml#opt-accounts.email.accounts._name_.neomutt.extraConfig) or in the home manager setup directly
 
 ```nix
 {
@@ -169,54 +147,19 @@ You can override or extend any settings:
 }
 ```
 
-## Multiple Accounts
-
-Add more Gmail accounts easily:
-
-```nix
-accounts.email.accounts = {
-  personal = {
-    address = "personal@gmail.com";
-    primary = true;
-    
-  };
-  
-  work = {
-    address = "work@gmail.com";
-    
-  };
-};
-```
-
-## Troubleshooting
-
-### Lieer authentication fails
-Run `gmi auth` in your maildir (`~/Mail/gmail`) and ensure you have valid OAuth2 credentials.
-
-### Notmuch doesn't find emails
-Run `notmuch new` to reindex your mail database.
-
-### Sync service not running
-Check systemd status:
-```bash
-systemctl --user status lieer-gmail.service
-systemctl --user status lieer-gmail.timer
-```
-
-## Why This Flake?
-
-Home-manager already has modules for lieer, notmuch, and neomutt. This flake provides:
-
-1. **Opinionated defaults** that work well together for Gmail
-2. **Pre-configured virtual mailboxes** for common Gmail views
-3. **Gmail-style keybindings** that feel familiar
-4. **One-line import** instead of copying configuration
-
-Think of it as a "batteries included" starting point that you can customize.
 
 ## Testing
 
 Want to test the setup without affecting your main system? Use the included VM configuration:
+
+### 1. Generate `.gmaileer.json` locally.
+
+The VM doesn't have a browser to do the oauth stuff. So you do the work on your local machine (in any dir).
+
+1. `gmi init youremail@gmail.com` on your machine
+2. Then `cp .credentials.gmaileer.json ./vm-test/` 
+
+### 2. Run the VM
 
 ```bash
 # Build and run the test VM
@@ -232,13 +175,7 @@ The VM includes:
 
 See [TESTING.md](./TESTING.md) for more testing options.
 
-## Resources
+## TODOs
 
-- [Lieer Documentation](https://github.com/gauteh/lieer)
-- [Notmuch Documentation](https://notmuchmail.org/)
-- [Neomutt Documentation](https://neomutt.org/)
-- [Home Manager Manual](https://nix-community.github.io/home-manager/)
-
-## License
-
-MIT
+- [ ] Clean up some keybindings
+- [ ] Better themes
