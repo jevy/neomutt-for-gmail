@@ -95,6 +95,22 @@
 
         services.lieer.enable = lib.mkDefault true;
 
+        # Override lieer systemd services to:
+        # 1. Use --resume so interrupted full pulls continue where they left off
+        # 2. Run notmuch new after sync so the index stays up to date
+        systemd.user.services = lib.mkMerge (map (account:
+          let
+            name = "lieer-${account.name}";
+          in {
+            ${name} = {
+              Service = {
+                ExecStart = lib.mkForce "${pkgs.lieer}/bin/gmi sync --resume";
+                ExecStartPost = "${pkgs.notmuch}/bin/notmuch --config=${config.home.homeDirectory}/.config/notmuch/default/config new";
+              };
+            };
+          }
+        ) (lib.filter (a: a.lieer.enable or false) (lib.attrValues config.accounts.email.accounts)));
+
         programs.notmuch.new.ignore = ["/.*[.](json|lock|bak)$/"];
 
         home.activation.lieerInit = lib.hm.dag.entryAfter ["writeBoundary"] ''
