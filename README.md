@@ -6,7 +6,7 @@ There have been some really nice initiatives to make things easier for those who
 
 - [Lieer](https://github.com/gauteh/lieer) - Uses the Google APIs for fetching, send email, managing labels and stuff
 - [Notmuch](https://github.com/notmuch/notmuch) - A lightweight database designed for managing email and making searching for stuff FAST. 
-- [Neomutt](https://gnithub.com/neomutt/neomutt) - The evoluation of the original `mutt` client with a bunch of features. Can use `notmuch` as the backend for email.
+- [Neomutt](https://github.com/neomutt/neomutt) - The evoluation of the original `mutt` client with a bunch of features. Can use `notmuch` as the backend for email.
 - [Mutt-Wizard](https://github.com/LukeSmithxyz/mutt-wizard) - A really sophisticated system for getting a neomutt setup. Leveraging the keybindings here.
 
 Years ago, getting all these to play nicely together took many hours of work. **This repo is an effort to make it as turn key as possible to get you using neomutt with your gmail account**.
@@ -58,28 +58,11 @@ Below is an example "flake" (like a declarative combinations of both dot file co
           
           programs.home-manager.enable = true;
           
-          services.lieer.enable = true;
-          
           accounts.email.accounts.gmail = {
             address = "your-email@gmail.com";
-            userName = "your-email@gmail.com";
             flavor = "gmail.com";
-            passwordCommand = "pass show email/gmail";
             realName = "Your Name";
             primary = true;
-            maildir.path = "gmail";
-            
-            lieer = {
-              enable = true;
-              sync = {
-                enable = true;
-                frequency = "*:0/5";
-              };
-            };
-            
-            notmuch.enable = true;
-            msmtp.enable = true;
-            neomutt.enable = true;
           };
         }
       ];
@@ -90,36 +73,29 @@ Below is an example "flake" (like a declarative combinations of both dot file co
 
 ### 3. Activate your configuration
 
-TODO: Gotta confirm this
-
 ```bash
 home-manager switch --flake .#yourusername
 ```
 
-### 4. Set up Gmail API credentials
+This automatically:
+- Creates the maildir structure (`~/Maildir/gmail/mail/{cur,new,tmp}`)
+- Initializes the notmuch database
+- Sets up lieer configuration
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project
-3. Enable the Gmail API
-4. Create OAuth2 credentials (Desktop application)
-5. Download the credentials JSON file
+### 4. First sync
 
-### 5. Bootstrap notmuch
-
-```bash
-cd ~/Maildir
-notmuch new
-```
-
-### 5. Bootstrap lieer to build the `.gmailieer.json` config
+Run your first lieer sync from the account's maildir:
 
 ```bash
 cd ~/Maildir/gmail
-gmi init your-email@gmail.com
 gmi sync
 ```
 
-### 6. That's it! Launch neomutt
+This will open a browser window for Google OAuth authentication. Authorize the app and lieer will begin syncing your mail.
+
+> **Note:** The first sync can take a while if you have a lot of email.
+
+### 5. That's it! Launch neomutt
 
 ```bash
 neomutt
@@ -128,9 +104,31 @@ neomutt
 
 ## Customization
 
-You can override or extend any settings:
+All settings use `lib.mkDefault`, so you can override anything. The module uses standard [Home Manager email account options](https://nix-community.github.io/home-manager/options.xhtml#opt-accounts.email.accounts._name_.address), so anything you'd normally configure there works here too.
 
-Either in the [extraConfig](https://nix-community.github.io/home-manager/options.xhtml#opt-accounts.email.accounts._name_.neomutt.extraConfig) or in the home manager setup directly
+### Account settings
+
+```nix
+accounts.email.accounts.gmail = {
+  address = "your-email@gmail.com";
+  flavor = "gmail.com";
+  realName = "Your Name";
+  primary = true;
+
+  # Custom maildir location (default: account name under ~/Maildir)
+  maildir.path = "personal-gmail";
+
+  # Sync frequency (default: every 5 minutes)
+  lieer.sync.frequency = "*:0/2";  # every 2 minutes
+
+  # Additional labels to ignore from Gmail
+  lieer.settings.ignore_remote_labels = ["important" "promotions"];
+};
+```
+
+### Neomutt UI
+
+Override or extend via [extraConfig](https://nix-community.github.io/home-manager/options.xhtml#opt-accounts.email.accounts._name_.neomutt.extraConfig) or in the home manager setup directly:
 
 ```nix
 {
@@ -138,9 +136,9 @@ Either in the [extraConfig](https://nix-community.github.io/home-manager/options
     sort = "date";
     index_format = "%4C %Z %{%Y-%m-%d} %-15.15L %s";
   };
-  
+
   programs.neomutt.sidebar.width = 30;
-  
+
   programs.neomutt.extraConfig = ''
     color index brightblue default "~N"
   '';
