@@ -82,24 +82,24 @@ This automatically:
 - Initializes the notmuch database
 - Sets up lieer configuration
 
-### 4. First sync
+### 4. Authenticate with Gmail
 
-Run your first lieer sync from the account's maildir:
+Run the first sync manually to complete the OAuth flow:
 
 ```bash
 cd ~/Maildir/gmail
 gmi sync
 ```
 
-This will open a browser window for Google OAuth authentication. Authorize the app and lieer will begin syncing your mail.
-
-> **Note:** The first sync can take a while if you have a lot of email.
+This will open a browser window for Google OAuth authentication. Once you authorize the app, you can `Ctrl-C` — the systemd timer will take over from here.
 
 ### 5. That's it! Launch neomutt
 
 ```bash
 neomutt
 ```
+
+A systemd timer syncs your mail every 5 minutes using `gmi sync --resume`, so even large mailboxes will incrementally sync across runs. The notmuch index is updated automatically after each sync.
 
 
 ## Customization
