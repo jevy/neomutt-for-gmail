@@ -99,11 +99,24 @@
 
         home.activation.lieerInit = lib.hm.dag.entryAfter ["writeBoundary"] ''
           ${lib.concatMapStringsSep "\n" (account: ''
-            if [ ! -f "${account.maildir.absPath}/.gmailieer.json" ]; then
-              $DRY_RUN_CMD mkdir -p "${account.maildir.absPath}"
+            # Create the maildir structure that lieer expects (mail/{cur,new,tmp}).
+            # We always ensure these exist because home-manager's lieer module
+            # writes .gmailieer.json before this activation script runs, which
+            # means "gmi init" (which creates mail/) would be skipped if we
+            # only checked for .gmailieer.json.
+            $DRY_RUN_CMD mkdir -p "${account.maildir.absPath}/mail/"{cur,new,tmp}
+
+            if [ ! -f "${account.maildir.absPath}/.credentials.gmailieer.json" ]; then
+              # No OAuth credentials yet — run gmi init to trigger the auth flow.
+              # If .gmailieer.json is a home-manager symlink, gmi init will fail
+              # with "already initialized", which is fine — the user just needs
+              # to run "gmi sync" to complete OAuth.
               $DRY_RUN_CMD ${pkgs.lieer}/bin/gmi -C "${account.maildir.absPath}" init "${account.address}" || true
             fi
           '') (lib.filter (a: a.lieer.enable or false) (lib.attrValues config.accounts.email.accounts))}
+
+          # Initialize/update notmuch database after maildir structure exists
+          $DRY_RUN_CMD ${pkgs.notmuch}/bin/notmuch --config="${config.home.homeDirectory}/.config/notmuch/default/config" new || true
         '';
 
         # Copy mutt-wizard configuration file
