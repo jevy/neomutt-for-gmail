@@ -62,6 +62,9 @@ bind browser l select-entry
 # bind browser G bottom-page
 # bind pager gg top
 # bind pager G bottom
+bind index,pager dT noop
+bind index,pager dd noop
+bind index,pager dt noop
 bind index,pager,browser d half-down
 bind index,pager,browser u half-up
 bind index,pager S sync-mailbox

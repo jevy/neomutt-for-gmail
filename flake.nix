@@ -39,15 +39,11 @@
             notmuch.neomutt.virtualMailboxes = lib.mkDefault [
               {
                 name = "Inbox";
-                query = "tag:inbox";
-              }
-              {
-                name = "Unread";
-                query = "tag:unread";
+                query = "(tag:inbox -tag:promotions -tag:social) OR (tag:inbox and tag:flagged)";
               }
               {
                 name = "Starred";
-                query = "tag:starred";
+                query = "tag:flagged";
               }
               {
                 name = "Sent";
@@ -56,6 +52,26 @@
               {
                 name = "Drafts";
                 query = "tag:draft";
+              }
+              {
+                name = "Promotions";
+                query = "tag:promotions";
+              }
+              {
+                name = "Social";
+                query = "tag:social";
+              }
+              {
+                name = "Spam";
+                query = "tag:spam";
+              }
+              {
+                name = "Trash";
+                query = "tag:trash";
+              }
+              {
+                name = "Archive";
+                query = "not tag:inbox and not tag:spam and not tag:trash";
               }
               {
                 name = "All Mail";
@@ -75,6 +91,13 @@
               set spoolfile = "Inbox"
               set nm_default_url = "notmuch://$HOME/Maildir"
 
+              macro index,pager e "<modify-tags-then-hide>-inbox -unread<enter><sync-mailbox><enter>" "Archive message"
+              macro index,pager gi "<change-vfolder>Inbox<enter>" "go to inbox"
+              macro index,pager gd "<change-vfolder>Drafts<enter>" "go to drafts"
+              macro index,pager gs "<change-vfolder>Sent<enter>" "go to sent"
+              macro index,pager gt "<change-vfolder>Trash<enter>" "go to trash"
+              macro index,pager ga "<change-vfolder>Archive<enter>" "go to archive"
+              macro index,pager gj "<change-vfolder>Spam<enter>" "go to spam"
               macro index \Cr "T~U<enter><tag-prefix><clear-flag>N<untag-pattern>.<enter>" "mark all messages as read"
               macro index O "<shell-escape>mailsync<enter>" "run mailsync to sync all mail"
               macro index \Cf "<enter-command>unset wait_key<enter><shell-escape>printf 'Enter a search term to find with notmuch: '; read x; echo \$x >\"''${XDG_CACHE_HOME:-$HOME/.cache}/mutt_terms\"<enter><limit>~i \"\`notmuch search --output=messages \$(cat \"''${XDG_CACHE_HOME:-$HOME/.cache}/mutt_terms\") | head -n 600 | perl -le '@a=<>;s/\^id:// for@a;$,=\"|\";print@a' | perl -le '@a=<>; chomp@a; s/\\+/\\\\+/g for@a; s/\\$/\\\\\\$/g for@a;print@a' \`\"<enter>" "show only messages matching a notmuch pattern"
@@ -111,7 +134,12 @@
           }
         ) (lib.filter (a: a.lieer.enable or false) (lib.attrValues config.accounts.email.accounts)));
 
+        # new.tags must be empty with lieer — lieer manages all tags via Gmail labels.
+        # Default "unread;inbox" would tag every synced message as unread inbox.
+        programs.notmuch.new.tags = lib.mkDefault [];
         programs.notmuch.new.ignore = ["/.*[.](json|lock|bak)$/"];
+        programs.notmuch.search.excludeTags = lib.mkDefault ["deleted" "spam"];
+        programs.notmuch.maildir.synchronizeFlags = lib.mkDefault false;
 
         home.activation.lieerInit = lib.hm.dag.entryAfter ["writeBoundary"] ''
           ${lib.concatMapStringsSep "\n" (account: ''
@@ -121,6 +149,14 @@
             # means "gmi init" (which creates mail/) would be skipped if we
             # only checked for .gmailieer.json.
             $DRY_RUN_CMD mkdir -p "${account.maildir.absPath}/mail/"{cur,new,tmp}
+
+            # Create placeholder maildir folders for home-manager's neomutt MRA section.
+            # The neomutt module generates 'set spoolfile=+INBOX' etc. assuming physical
+            # IMAP folders, but with lieer+notmuch we use virtual mailboxes instead.
+            # These empty dirs prevent "is not a mailbox" errors on folder changes.
+            for box in INBOX Sent Drafts Trash; do
+              $DRY_RUN_CMD mkdir -p "${account.maildir.absPath}/$box/"{cur,new,tmp}
+            done
 
             if [ ! -f "${account.maildir.absPath}/.credentials.gmailieer.json" ]; then
               # No OAuth credentials yet — run gmi init to trigger the auth flow.
@@ -147,6 +183,7 @@
           };
           unmailboxes = lib.mkDefault true; # Remove previous sidebar mailboxes when sourcing accounts
           extraConfig = ''
+            set virtual_spoolfile
             # Include mutt-wizard custom configuration
             source ${config.home.homeDirectory}/.config/neomutt/mutt-wizard.muttrc
           '';
@@ -154,8 +191,7 @@
             sendmail = "\"${muttdownPkg}/bin/muttdown --sendmail-passthru --force-markdown\"";
             spoolfile = "Inbox";
             nm_default_url = "notmuch://$HOME/Maildir";
-            # virtual_spool_file = "Inbox";
-            # nm_query_type = "threads";
+            nm_db_limit = "5000";
           };
         };
       };
