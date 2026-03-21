@@ -111,7 +111,12 @@
           }
         ) (lib.filter (a: a.lieer.enable or false) (lib.attrValues config.accounts.email.accounts)));
 
+        # new.tags must be empty with lieer — lieer manages all tags via Gmail labels.
+        # Default "unread;inbox" would tag every synced message as unread inbox.
+        programs.notmuch.new.tags = lib.mkDefault [];
         programs.notmuch.new.ignore = ["/.*[.](json|lock|bak)$/"];
+        programs.notmuch.search.excludeTags = lib.mkDefault ["deleted" "spam"];
+        programs.notmuch.maildir.synchronizeFlags = lib.mkDefault false;
 
         home.activation.lieerInit = lib.hm.dag.entryAfter ["writeBoundary"] ''
           ${lib.concatMapStringsSep "\n" (account: ''
