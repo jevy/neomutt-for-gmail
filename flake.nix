@@ -23,7 +23,11 @@
       ...
     }: let
       muttdownPkg = muttdown.packages.${pkgs.system}.default;
+      accounts = lib.attrValues config.accounts.email.accounts;
+      primaryAccounts = lib.filter (a: a.primary or false) accounts;
+      primaryAccount = if primaryAccounts != [] then lib.head primaryAccounts else null;
     in {
+      # Per-account smart defaults
       options.accounts.email.accounts = lib.mkOption {
         type = lib.types.attrsOf (lib.types.submodule ({config, ...}: {
           config = {
@@ -78,42 +82,25 @@
                 query = "*";
               }
             ];
-            msmtp.enable = lib.mkDefault true;
+            msmtp.enable = lib.mkDefault false;
             neomutt.enable = lib.mkDefault true;
-            # Override the genCommonFolderHooks to use virtual mailbox instead of maildir folder
             neomutt.showDefaultMailbox = lib.mkDefault false;
             neomutt.extraConfig = lib.mkIf (config.neomutt.enable or false) ''
-              # Explicitly unset incorrect settings from Home Manager module
+              # Override home-manager's folder-hook spoolfile (physical path)
+              # with notmuch virtual mailbox name
               unset spoolfile
-              unset nm_default_uri
-
-              # Set correct values for notmuch virtual mailboxes
               set spoolfile = "Inbox"
-              set nm_default_url = "notmuch://$HOME/Maildir"
-
-              macro index,pager e "<modify-tags-then-hide>-inbox -unread<enter><sync-mailbox><enter>" "Archive message"
-              macro index,pager gi "<change-vfolder>Inbox<enter>" "go to inbox"
-              macro index,pager gd "<change-vfolder>Drafts<enter>" "go to drafts"
-              macro index,pager gs "<change-vfolder>Sent<enter>" "go to sent"
-              macro index,pager gt "<change-vfolder>Trash<enter>" "go to trash"
-              macro index,pager ga "<change-vfolder>Archive<enter>" "go to archive"
-              macro index,pager gj "<change-vfolder>Spam<enter>" "go to spam"
-              macro index \Cr "T~U<enter><tag-prefix><clear-flag>N<untag-pattern>.<enter>" "mark all messages as read"
-              macro index O "<shell-escape>mailsync<enter>" "run mailsync to sync all mail"
-              macro index \Cf "<enter-command>unset wait_key<enter><shell-escape>printf 'Enter a search term to find with notmuch: '; read x; echo \$x >\"''${XDG_CACHE_HOME:-$HOME/.cache}/mutt_terms\"<enter><limit>~i \"\`notmuch search --output=messages \$(cat \"''${XDG_CACHE_HOME:-$HOME/.cache}/mutt_terms\") | head -n 600 | perl -le '@a=<>;s/\^id:// for@a;$,=\"|\";print@a' | perl -le '@a=<>; chomp@a; s/\\+/\\\\+/g for@a; s/\\$/\\\\\\$/g for@a;print@a' \`\"<enter>" "show only messages matching a notmuch pattern"
-              macro index A "<limit>all\n" "show all messages (undo limit)"
-
             '';
           };
         }));
       };
 
       config = {
-        home.packages = [muttdownPkg];
+        home.packages = [muttdownPkg pkgs.urlscan];
 
         programs.lieer.enable = lib.mkDefault true;
         programs.notmuch.enable = lib.mkDefault true;
-        programs.msmtp.enable = lib.mkDefault true;
+        programs.msmtp.enable = lib.mkDefault false;
         programs.neomutt.enable = lib.mkDefault true;
 
         services.lieer.enable = lib.mkDefault true;
@@ -144,10 +131,6 @@
         home.activation.lieerInit = lib.hm.dag.entryAfter ["writeBoundary"] ''
           ${lib.concatMapStringsSep "\n" (account: ''
             # Create the maildir structure that lieer expects (mail/{cur,new,tmp}).
-            # We always ensure these exist because home-manager's lieer module
-            # writes .gmailieer.json before this activation script runs, which
-            # means "gmi init" (which creates mail/) would be skipped if we
-            # only checked for .gmailieer.json.
             $DRY_RUN_CMD mkdir -p "${account.maildir.absPath}/mail/"{cur,new,tmp}
 
             # Create placeholder maildir folders for home-manager's neomutt MRA section.
@@ -160,9 +143,6 @@
 
             if [ ! -f "${account.maildir.absPath}/.credentials.gmailieer.json" ]; then
               # No OAuth credentials yet — run gmi init to trigger the auth flow.
-              # If .gmailieer.json is a home-manager symlink, gmi init will fail
-              # with "already initialized", which is fine — the user just needs
-              # to run "gmi sync" to complete OAuth.
               $DRY_RUN_CMD ${pkgs.lieer}/bin/gmi -C "${account.maildir.absPath}" init "${account.address}" || true
             fi
           '') (lib.filter (a: a.lieer.enable or false) (lib.attrValues config.accounts.email.accounts))}
@@ -171,8 +151,10 @@
           $DRY_RUN_CMD ${pkgs.notmuch}/bin/notmuch --config="${config.home.homeDirectory}/.config/notmuch/default/config" new || true
         '';
 
-        # Copy mutt-wizard configuration file
-        home.file.".config/neomutt/mutt-wizard.muttrc".source = ./mutt-wizard.muttrc;
+        # Generate .muttdown.yaml for markdown email sending via gmi
+        home.file.".muttdown.yaml" = lib.mkIf (primaryAccount != null) {
+          text = lib.mkDefault "sendmail: gmi send -t -C ${primaryAccount.maildir.absPath}";
+        };
 
         programs.neomutt = {
           vimKeys = lib.mkDefault true;
@@ -181,18 +163,160 @@
             shortPath = lib.mkDefault true;
             width = lib.mkDefault 20;
           };
-          unmailboxes = lib.mkDefault true; # Remove previous sidebar mailboxes when sourcing accounts
-          extraConfig = ''
-            set virtual_spoolfile
-            # Include mutt-wizard custom configuration
-            source ${config.home.homeDirectory}/.config/neomutt/mutt-wizard.muttrc
-          '';
+          unmailboxes = lib.mkDefault true;
+
           settings = {
-            sendmail = "\"${muttdownPkg}/bin/muttdown --sendmail-passthru --force-markdown\"";
-            spoolfile = "Inbox";
-            nm_default_url = "notmuch://$HOME/Maildir";
-            nm_db_limit = "5000";
+            sendmail = lib.mkDefault "\"${muttdownPkg}/bin/muttdown --sendmail-passthru --force-markdown\"";
+            spoolfile = lib.mkDefault "\"Inbox\"";
+            nm_default_url = lib.mkDefault "\"notmuch://$HOME/Maildir\"";
+            nm_db_limit = lib.mkDefault "\"5000\"";
+            use_envelope_from = lib.mkDefault "yes";
           };
+
+          # Vim-style keybindings (replaces mutt-wizard.muttrc binds)
+          binds = [
+            # Noop guards — prevent accidental moves/copies/etc
+            # gT must come before gg/gi/etc to avoid alias warnings
+            { map = ["index" "pager"]; key = "gT"; action = "noop"; }
+            { map = ["index" "pager"]; key = "M"; action = "noop"; }
+            { map = ["index" "pager"]; key = "C"; action = "noop"; }
+            { map = ["index" "pager"]; key = "i"; action = "noop"; }
+            { map = ["index"]; key = "\\Cf"; action = "noop"; }
+            # dT/dt noops prevent alias warnings (dd/d handled in extraConfig)
+            { map = ["index" "pager"]; key = "dT"; action = "noop"; }
+            { map = ["index" "pager"]; key = "dt"; action = "noop"; }
+
+            # Vim navigation
+            { map = ["index"]; key = "j"; action = "next-entry"; }
+            { map = ["index"]; key = "k"; action = "previous-entry"; }
+            { map = ["index"]; key = "G"; action = "last-entry"; }
+            { map = ["index"]; key = "gg"; action = "first-entry"; }
+            { map = ["index"]; key = "l"; action = "display-message"; }
+            { map = ["index"]; key = "h"; action = "noop"; }
+            { map = ["index"]; key = "D"; action = "delete-message"; }
+            { map = ["index"]; key = "U"; action = "undelete-message"; }
+            { map = ["index"]; key = "L"; action = "limit"; }
+            { map = ["index" "query"]; key = "<space>"; action = "tag-entry"; }
+            { map = ["index" "pager"]; key = "H"; action = "view-raw-message"; }
+            { map = ["index" "pager"]; key = "S"; action = "sync-mailbox"; }
+            { map = ["index" "pager"]; key = "R"; action = "group-reply"; }
+            { map = ["index" "pager" "browser"]; key = "u"; action = "half-up"; }
+
+            # Pager
+            { map = ["pager" "attach"]; key = "h"; action = "exit"; }
+            { map = ["pager"]; key = "j"; action = "next-line"; }
+            { map = ["pager"]; key = "k"; action = "previous-line"; }
+            { map = ["pager"]; key = "l"; action = "view-attachments"; }
+            { map = ["pager" "browser"]; key = "gg"; action = "top-page"; }
+            { map = ["pager" "browser"]; key = "G"; action = "bottom-page"; }
+
+            # Attachments
+            { map = ["attach"]; key = "<return>"; action = "view-mailcap"; }
+            { map = ["attach"]; key = "l"; action = "view-mailcap"; }
+
+            # Browser
+            { map = ["browser"]; key = "l"; action = "select-entry"; }
+
+            # Editor
+            { map = ["editor"]; key = "<space>"; action = "noop"; }
+            { map = ["editor"]; key = "<Tab>"; action = "complete-query"; }
+
+            # Mouse wheel
+            { map = ["index"]; key = "\\031"; action = "previous-undeleted"; }
+            { map = ["index"]; key = "\\005"; action = "next-undeleted"; }
+            { map = ["pager"]; key = "\\031"; action = "previous-line"; }
+            { map = ["pager"]; key = "\\005"; action = "next-line"; }
+
+            # Sidebar
+            { map = ["index" "pager"]; key = "\\Ck"; action = "sidebar-prev"; }
+            { map = ["index" "pager"]; key = "\\Cj"; action = "sidebar-next"; }
+            { map = ["index" "pager"]; key = "\\Co"; action = "sidebar-open"; }
+            { map = ["index" "pager"]; key = "\\Cp"; action = "sidebar-prev-new"; }
+            { map = ["index" "pager"]; key = "\\Cn"; action = "sidebar-next-new"; }
+            { map = ["index" "pager"]; key = "B"; action = "sidebar-toggle-visible"; }
+          ];
+
+          # Gmail-specific macros (using notmuch virtual mailboxes)
+          macros = [
+            # Compose
+            { map = ["index" "pager"]; key = "c"; action = "<mail>"; }
+
+            # Gmail tag operations
+            { map = ["index" "pager"]; key = "e"; action = "<modify-tags-then-hide>-inbox -unread<enter><sync-mailbox>"; }
+
+            # Virtual mailbox navigation
+            { map = ["index" "pager"]; key = "gi"; action = "<change-vfolder>Inbox<enter>"; }
+            { map = ["index" "pager"]; key = "gd"; action = "<change-vfolder>Drafts<enter>"; }
+            { map = ["index" "pager"]; key = "gs"; action = "<change-vfolder>Sent<enter>"; }
+            { map = ["index" "pager"]; key = "gt"; action = "<change-vfolder>Trash<enter>"; }
+            { map = ["index" "pager"]; key = "ga"; action = "<change-vfolder>Archive<enter>"; }
+            { map = ["index" "pager"]; key = "gj"; action = "<change-vfolder>Spam<enter>"; }
+
+            # Utilities
+            { map = ["index"]; key = "\\Cr"; action = "T~U<enter><tag-prefix><clear-flag>N<untag-pattern>.<enter>"; }
+            { map = ["index"]; key = "O"; action = "<shell-escape>notmuch new<enter>"; }
+            { map = ["index"]; key = "\\Cf"; action = "<vfolder-from-query>"; }
+            { map = ["index"]; key = "A"; action = "<limit>all<enter>"; }
+
+            # URL scanning
+            { map = ["index" "pager"]; key = "\\cb"; action = "<pipe-message> urlscan<Enter>"; }
+            { map = ["attach" "compose"]; key = "\\cb"; action = "<pipe-entry> urlscan<Enter>"; }
+
+            # Save attachments to Downloads
+            { map = ["attach"]; key = "S"; action = "<save-entry><bol>~/Downloads/<eol>"; }
+            { map = ["attach"]; key = "s"; action = "<save-entry><bol>~/Downloads/<eol><enter>"; }
+
+            # Browser
+            { map = ["browser"]; key = "h"; action = "<change-dir><kill-line>..<enter>"; }
+          ];
+
+          extraConfig = lib.mkDefault ''
+            # Character encoding
+            set send_charset="us-ascii:utf-8"
+
+            # Display
+            set date_format="%y/%m/%d %I:%M%p"
+            set index_format="%2C %Z %?X?A& ? %D %-15.15F %s (%-4.4c)"
+            set rfc2047_parameters = yes
+            set sleep_time = 0
+            set markers = no
+            set mark_old = no
+            set wait_key = no
+            set fast_reply
+            set fcc_attach
+            set forward_format = "Fwd: %s"
+            set forward_quote
+            set reverse_name
+            set include
+            set pager_stop = yes
+            set abort_backspace = no
+
+            # Sidebar
+            set sidebar_next_new_wrap = yes
+            set mail_check_stats
+            set sidebar_format = '%D%?F? [%F]?%* %?N?%N/? %?S?%S?'
+
+            # MIME
+            set mime_forward = yes
+            set mime_forward_rest = yes
+            set mime_type_query_command = "file --mime-type -b %s"
+            auto_view text/html
+            auto_view application/pgp-encrypted
+            alternative_order text/plain text/enriched text/html
+            set display_filter = "tac | sed '/\\\[-- Autoview/,+1d' | tac"
+
+            # Notmuch
+            set virtual_spoolfile
+            set nm_unread_tag = "unread"
+
+            # d-key bindings: order matters to suppress alias warnings
+            # 1. noop d first, 2. define dd macro, 3. rebind d to half-down
+            bind index,pager d noop
+            macro index,pager dd "<modify-tags-then-hide>+trash -inbox -unread<enter><sync-mailbox>" "Move to trash (notmuch tags)"
+            bind index,pager,browser d half-down
+
+            # Colors: left to user/stylix — no defaults here
+          '';
         };
       };
     };
