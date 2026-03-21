@@ -147,6 +147,7 @@
           };
           unmailboxes = lib.mkDefault true; # Remove previous sidebar mailboxes when sourcing accounts
           extraConfig = ''
+            set virtual_spoolfile
             # Include mutt-wizard custom configuration
             source ${config.home.homeDirectory}/.config/neomutt/mutt-wizard.muttrc
           '';
@@ -154,8 +155,6 @@
             sendmail = "\"${muttdownPkg}/bin/muttdown --sendmail-passthru --force-markdown\"";
             spoolfile = "Inbox";
             nm_default_url = "notmuch://$HOME/Maildir";
-            # virtual_spool_file = "Inbox";
-            # nm_query_type = "threads";
           };
         };
       };
