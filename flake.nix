@@ -39,15 +39,11 @@
             notmuch.neomutt.virtualMailboxes = lib.mkDefault [
               {
                 name = "Inbox";
-                query = "tag:inbox";
-              }
-              {
-                name = "Unread";
-                query = "tag:unread";
+                query = "(tag:inbox -tag:promotions -tag:social) OR (tag:inbox and tag:flagged)";
               }
               {
                 name = "Starred";
-                query = "tag:starred";
+                query = "tag:flagged";
               }
               {
                 name = "Sent";
@@ -56,6 +52,26 @@
               {
                 name = "Drafts";
                 query = "tag:draft";
+              }
+              {
+                name = "Promotions";
+                query = "tag:promotions";
+              }
+              {
+                name = "Social";
+                query = "tag:social";
+              }
+              {
+                name = "Spam";
+                query = "tag:spam";
+              }
+              {
+                name = "Trash";
+                query = "tag:trash";
+              }
+              {
+                name = "Archive";
+                query = "not tag:inbox and not tag:spam and not tag:trash";
               }
               {
                 name = "All Mail";
