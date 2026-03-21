@@ -23,6 +23,7 @@
       ...
     }: let
       muttdownPkg = muttdown.packages.${pkgs.system}.default;
+      queryContactsPkg = pkgs.callPackage ./pkgs/query-contacts {};
       accounts = lib.attrValues config.accounts.email.accounts;
       primaryAccounts = lib.filter (a: a.primary or false) accounts;
       primaryAccount = if primaryAccounts != [] then lib.head primaryAccounts else null;
@@ -96,7 +97,7 @@
       };
 
       config = {
-        home.packages = [muttdownPkg pkgs.urlscan];
+        home.packages = [muttdownPkg pkgs.urlscan pkgs.goobook queryContactsPkg];
 
         programs.lieer.enable = lib.mkDefault true;
         programs.notmuch.enable = lib.mkDefault true;
@@ -171,6 +172,11 @@
             nm_default_url = lib.mkDefault "\"notmuch://$HOME/Maildir\"";
             nm_db_limit = lib.mkDefault "\"5000\"";
             use_envelope_from = lib.mkDefault "yes";
+            query_command = lib.mkDefault "\"query-contacts %s\"";
+            # Preserve query-contacts' match-quality ordering — neomutt defaults
+            # to alias_sort=alias (alphabetical), which re-sorts results and defeats
+            # the fuzzy-match ranking from fzf.
+            sort_alias = lib.mkDefault "unsorted";
           };
 
           # Vim-style keybindings (replaces mutt-wizard.muttrc binds)
@@ -257,6 +263,9 @@
             { map = ["index"]; key = "O"; action = "<shell-escape>notmuch new<enter>"; }
             { map = ["index"]; key = "\\Cf"; action = "<vfolder-from-query>"; }
             { map = ["index"]; key = "A"; action = "<limit>all<enter>"; }
+
+            # Contacts
+            { map = ["index" "pager"]; key = "a"; action = "<pipe-message>goobook add<return>"; }
 
             # URL scanning
             { map = ["index" "pager"]; key = "\\cb"; action = "<pipe-message> urlscan<Enter>"; }
