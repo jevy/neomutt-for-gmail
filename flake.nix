@@ -91,6 +91,8 @@
               set spoolfile = "Inbox"
               set nm_default_url = "notmuch://$HOME/Maildir"
 
+              macro index,pager e "<modify-tags-then-hide>-inbox -unread<enter><sync-mailbox><enter>" "Archive message"
+              macro index,pager gi "<change-vfolder>Inbox<enter>" "go to inbox"
               macro index \Cr "T~U<enter><tag-prefix><clear-flag>N<untag-pattern>.<enter>" "mark all messages as read"
               macro index O "<shell-escape>mailsync<enter>" "run mailsync to sync all mail"
               macro index \Cf "<enter-command>unset wait_key<enter><shell-escape>printf 'Enter a search term to find with notmuch: '; read x; echo \$x >\"''${XDG_CACHE_HOME:-$HOME/.cache}/mutt_terms\"<enter><limit>~i \"\`notmuch search --output=messages \$(cat \"''${XDG_CACHE_HOME:-$HOME/.cache}/mutt_terms\") | head -n 600 | perl -le '@a=<>;s/\^id:// for@a;$,=\"|\";print@a' | perl -le '@a=<>; chomp@a; s/\\+/\\\\+/g for@a; s/\\$/\\\\\\$/g for@a;print@a' \`\"<enter>" "show only messages matching a notmuch pattern"
@@ -176,6 +178,7 @@
             sendmail = "\"${muttdownPkg}/bin/muttdown --sendmail-passthru --force-markdown\"";
             spoolfile = "Inbox";
             nm_default_url = "notmuch://$HOME/Maildir";
+            nm_db_limit = "5000";
           };
         };
       };
