@@ -52,6 +52,10 @@
     assert "set sleep_time" in output, "general settings not found"
     assert "virtual_spoolfile" in output, "virtual_spoolfile not set"
 
+    # Contact completion
+    assert "query-contacts" in output, "query_command not set to query-contacts"
+    assert "goobook add" in output, "goobook add macro not found"
+
     # Colors are present
     assert "color index yellow default" in output, "colors not found"
 

@@ -146,6 +146,45 @@ Override or extend via [extraConfig](https://nix-community.github.io/home-manage
 ```
 
 
+## Contacts
+
+Contact completion works **out of the box** — press `<Tab>` when composing a To/CC/BCC address to search contacts from your email history (via notmuch), sorted by how frequently you email them.
+
+Optionally, you can connect **Google Contacts** to also pull in contacts you haven't emailed yet — like a shared work directory or contacts synced from your phone. When both sources are connected, Google Contacts results appear first, followed by email history.
+
+### Google Contacts (optional)
+
+To also search your Google Contacts, set up a Google Cloud project and authenticate goobook. This is a one-time setup:
+
+#### 1. Create a Google Cloud project (or reuse an existing one)
+
+Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a new project (or select an existing one).
+
+#### 2. Enable the People API
+
+- In your project, go to **APIs & Services > Library**
+- Search for **"People API"** (not "Contacts API") and click **Enable**
+
+#### 3. Create OAuth credentials
+
+- Go to **APIs & Services > Credentials**
+- Click **+ Create Credentials > OAuth client ID**
+- Select **Desktop application** as the application type
+- Give it a name (e.g. "goobook")
+- Save the **Client ID** and **Client Secret**
+
+#### 4. Authenticate goobook
+
+```bash
+goobook authenticate -- YOUR_CLIENT_ID YOUR_CLIENT_SECRET
+```
+
+This opens a browser for Google OAuth consent. Once you authorize, goobook saves the token locally and caches your contacts (refreshes every 24 hours). You can force a cache refresh anytime with `goobook reload`.
+
+### Adding contacts
+
+Press `a` in the index or pager to add the sender of the current message to your Google Contacts (requires goobook authentication above).
+
 ## Testing
 
 Want to test the setup without affecting your main system? Use the included VM configuration:
