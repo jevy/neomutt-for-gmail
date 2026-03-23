@@ -97,7 +97,7 @@
       };
 
       config = {
-        home.packages = [muttdownPkg pkgs.urlscan pkgs.goobook queryContactsPkg];
+        home.packages = [muttdownPkg pkgs.urlscan pkgs.goobook queryContactsPkg pkgs.w3m];
 
         programs.lieer.enable = lib.mkDefault true;
         programs.notmuch.enable = lib.mkDefault true;
@@ -157,6 +157,59 @@
           text = lib.mkDefault "sendmail: gmi send -t -C ${primaryAccount.maildir.absPath}";
         };
 
+        # Urlscan: vim-like keybindings, l to open URL
+        xdg.configFile."urlscan/config.json".text = lib.mkDefault (builtins.toJSON {
+          keys = {
+            "0" = "digits";
+            "1" = "digits";
+            "2" = "digits";
+            "3" = "digits";
+            "4" = "digits";
+            "5" = "digits";
+            "6" = "digits";
+            "7" = "digits";
+            "8" = "digits";
+            "9" = "digits";
+            j = "down";
+            k = "up";
+            "ctrl d" = "page_down";
+            "ctrl u" = "page_up";
+            g = "top";
+            G = "bottom";
+            J = "next";
+            K = "previous";
+            l = "open_url";
+            enter = "open_url";
+            "/" = "search_key";
+            c = "context";
+            C = "clipboard";
+            P = "clipboard_pri";
+            d = "del_url";
+            a = "add_url";
+            o = "open_queue";
+            O = "open_queue_win";
+            s = "shorten";
+            S = "all_shorten";
+            u = "all_escape";
+            R = "reverse";
+            q = "quit";
+            Q = "quit";
+            p = "palette";
+            f1 = "help_menu";
+            H = "help_menu";
+            "ctrl l" = "clear_screen";
+          };
+        });
+
+        # Mailcap: w3m renders HTML inline, xdg-open handles attachments
+        xdg.configFile."mailcap".text = lib.mkDefault ''
+          text/html; ${pkgs.w3m}/bin/w3m -dump -T text/html -cols 80 -o display_borders=1 -o display_link=0 -s; nametemplate=%s.html; copiousoutput
+          application/*; xdg-open %s &; test=test -n "$DISPLAY"
+          image/*; xdg-open %s &; test=test -n "$DISPLAY"
+          video/*; xdg-open %s &; test=test -n "$DISPLAY"
+          audio/*; xdg-open %s &; test=test -n "$DISPLAY"
+        '';
+
         programs.neomutt = {
           vimKeys = lib.mkDefault true;
           sidebar = {
@@ -171,6 +224,7 @@
             spoolfile = lib.mkDefault "\"Inbox\"";
             nm_default_url = lib.mkDefault "\"notmuch://$HOME/Maildir\"";
             nm_db_limit = lib.mkDefault "\"5000\"";
+            mailcap_path = lib.mkDefault "\"~/.config/mailcap\"";
             use_envelope_from = lib.mkDefault "yes";
             query_command = lib.mkDefault "\"query-contacts %s\"";
             # Preserve query-contacts' match-quality ordering — neomutt defaults
@@ -188,9 +242,6 @@
             { map = ["index" "pager"]; key = "C"; action = "noop"; }
             { map = ["index" "pager"]; key = "i"; action = "noop"; }
             { map = ["index"]; key = "\\Cf"; action = "noop"; }
-            # dT/dt noops prevent alias warnings (dd/d handled in extraConfig)
-            { map = ["index" "pager"]; key = "dT"; action = "noop"; }
-            { map = ["index" "pager"]; key = "dt"; action = "noop"; }
 
             # Vim navigation
             { map = ["index"]; key = "j"; action = "next-entry"; }
@@ -199,14 +250,13 @@
             { map = ["index"]; key = "gg"; action = "first-entry"; }
             { map = ["index"]; key = "l"; action = "display-message"; }
             { map = ["index"]; key = "h"; action = "noop"; }
-            { map = ["index"]; key = "D"; action = "delete-message"; }
-            { map = ["index"]; key = "U"; action = "undelete-message"; }
             { map = ["index"]; key = "L"; action = "limit"; }
             { map = ["index" "query"]; key = "<space>"; action = "tag-entry"; }
             { map = ["index" "pager"]; key = "H"; action = "view-raw-message"; }
             { map = ["index" "pager"]; key = "S"; action = "sync-mailbox"; }
             { map = ["index" "pager"]; key = "R"; action = "group-reply"; }
-            { map = ["index" "pager" "browser"]; key = "u"; action = "half-up"; }
+            { map = ["index" "pager" "browser"]; key = "\\Cu"; action = "half-up"; }
+            { map = ["index" "pager" "browser"]; key = "\\Cd"; action = "half-down"; }
 
             # Pager
             { map = ["pager" "attach"]; key = "h"; action = "exit"; }
@@ -248,7 +298,8 @@
             { map = ["index" "pager"]; key = "c"; action = "<mail>"; }
 
             # Gmail tag operations
-            { map = ["index" "pager"]; key = "e"; action = "<modify-tags-then-hide>-inbox -unread<enter><sync-mailbox>"; }
+            { map = ["index" "pager"]; key = "e"; action = "<modify-tags-then-hide>-inbox -unread<enter>"; }
+            { map = ["index" "pager"]; key = "E"; action = "<modify-tags>+inbox<enter>"; }
 
             # Virtual mailbox navigation
             { map = ["index" "pager"]; key = "gi"; action = "<change-vfolder>Inbox<enter>"; }
@@ -268,8 +319,8 @@
             { map = ["index" "pager"]; key = "a"; action = "<pipe-message>goobook add<return>"; }
 
             # URL scanning
-            { map = ["index" "pager"]; key = "\\cb"; action = "<pipe-message> urlscan<Enter>"; }
-            { map = ["attach" "compose"]; key = "\\cb"; action = "<pipe-entry> urlscan<Enter>"; }
+            { map = ["index" "pager"]; key = "\\cb"; action = "<pipe-message>urlscan -d -W<Enter>"; }
+            { map = ["attach" "compose"]; key = "\\cb"; action = "<pipe-entry>urlscan -d -W<Enter>"; }
 
             # Save attachments to Downloads
             { map = ["attach"]; key = "S"; action = "<save-entry><bol>~/Downloads/<eol>"; }
@@ -279,7 +330,7 @@
             { map = ["browser"]; key = "h"; action = "<change-dir><kill-line>..<enter>"; }
           ];
 
-          extraConfig = lib.mkDefault ''
+          extraConfig = ''
             # Character encoding
             set send_charset="us-ascii:utf-8"
 
@@ -311,18 +362,13 @@
             set mime_type_query_command = "file --mime-type -b %s"
             auto_view text/html
             auto_view application/pgp-encrypted
-            alternative_order text/plain text/enriched text/html
+            unalternative_order *
+            alternative_order text/enriched text/html text/plain
             set display_filter = "tac | sed '/\\\[-- Autoview/,+1d' | tac"
 
             # Notmuch
             set virtual_spoolfile
             set nm_unread_tag = "unread"
-
-            # d-key bindings: order matters to suppress alias warnings
-            # 1. noop d first, 2. define dd macro, 3. rebind d to half-down
-            bind index,pager d noop
-            macro index,pager dd "<modify-tags-then-hide>+trash -inbox -unread<enter><sync-mailbox>" "Move to trash (notmuch tags)"
-            bind index,pager,browser d half-down
 
             # Colors: left to user/stylix — no defaults here
           '';
