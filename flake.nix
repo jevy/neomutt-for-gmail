@@ -206,7 +206,8 @@
             { map = ["index" "pager"]; key = "H"; action = "view-raw-message"; }
             { map = ["index" "pager"]; key = "S"; action = "sync-mailbox"; }
             { map = ["index" "pager"]; key = "R"; action = "group-reply"; }
-            { map = ["index" "pager" "browser"]; key = "u"; action = "half-up"; }
+            { map = ["index" "pager" "browser"]; key = "\\Cu"; action = "half-up"; }
+            { map = ["index" "pager" "browser"]; key = "\\Cd"; action = "half-down"; }
 
             # Pager
             { map = ["pager" "attach"]; key = "h"; action = "exit"; }
