@@ -157,6 +157,50 @@
           text = lib.mkDefault "sendmail: gmi send -t -C ${primaryAccount.maildir.absPath}";
         };
 
+        # Urlscan: vim-like keybindings, l to open URL
+        xdg.configFile."urlscan/config.json".text = lib.mkDefault (builtins.toJSON {
+          keys = {
+            "0" = "digits";
+            "1" = "digits";
+            "2" = "digits";
+            "3" = "digits";
+            "4" = "digits";
+            "5" = "digits";
+            "6" = "digits";
+            "7" = "digits";
+            "8" = "digits";
+            "9" = "digits";
+            j = "down";
+            k = "up";
+            "ctrl d" = "page_down";
+            "ctrl u" = "page_up";
+            g = "top";
+            G = "bottom";
+            J = "next";
+            K = "previous";
+            l = "open_url";
+            enter = "open_url";
+            "/" = "search_key";
+            c = "context";
+            C = "clipboard";
+            P = "clipboard_pri";
+            d = "del_url";
+            a = "add_url";
+            o = "open_queue";
+            O = "open_queue_win";
+            s = "shorten";
+            S = "all_shorten";
+            u = "all_escape";
+            R = "reverse";
+            q = "quit";
+            Q = "quit";
+            p = "palette";
+            f1 = "help_menu";
+            H = "help_menu";
+            "ctrl l" = "clear_screen";
+          };
+        });
+
         # Mailcap: w3m renders HTML inline, xdg-open handles attachments
         xdg.configFile."mailcap".text = lib.mkDefault ''
           text/html; ${pkgs.w3m}/bin/w3m -dump -T text/html -cols 80 -o display_borders=1 -o display_link=0 -s; nametemplate=%s.html; copiousoutput
@@ -275,8 +319,8 @@
             { map = ["index" "pager"]; key = "a"; action = "<pipe-message>goobook add<return>"; }
 
             # URL scanning
-            { map = ["index" "pager"]; key = "\\cb"; action = "<pipe-message> urlscan<Enter>"; }
-            { map = ["attach" "compose"]; key = "\\cb"; action = "<pipe-entry> urlscan<Enter>"; }
+            { map = ["index" "pager"]; key = "\\cb"; action = "<pipe-message>urlscan -d -W<Enter>"; }
+            { map = ["attach" "compose"]; key = "\\cb"; action = "<pipe-entry>urlscan -d -W<Enter>"; }
 
             # Save attachments to Downloads
             { map = ["attach"]; key = "S"; action = "<save-entry><bol>~/Downloads/<eol>"; }
