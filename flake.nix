@@ -188,9 +188,6 @@
             { map = ["index" "pager"]; key = "C"; action = "noop"; }
             { map = ["index" "pager"]; key = "i"; action = "noop"; }
             { map = ["index"]; key = "\\Cf"; action = "noop"; }
-            # dT/dt noops prevent alias warnings (dd/d handled in extraConfig)
-            { map = ["index" "pager"]; key = "dT"; action = "noop"; }
-            { map = ["index" "pager"]; key = "dt"; action = "noop"; }
 
             # Vim navigation
             { map = ["index"]; key = "j"; action = "next-entry"; }
@@ -199,8 +196,6 @@
             { map = ["index"]; key = "gg"; action = "first-entry"; }
             { map = ["index"]; key = "l"; action = "display-message"; }
             { map = ["index"]; key = "h"; action = "noop"; }
-            { map = ["index"]; key = "D"; action = "delete-message"; }
-            { map = ["index"]; key = "U"; action = "undelete-message"; }
             { map = ["index"]; key = "L"; action = "limit"; }
             { map = ["index" "query"]; key = "<space>"; action = "tag-entry"; }
             { map = ["index" "pager"]; key = "H"; action = "view-raw-message"; }
@@ -318,12 +313,6 @@
             # Notmuch
             set virtual_spoolfile
             set nm_unread_tag = "unread"
-
-            # d-key bindings: order matters to suppress alias warnings
-            # 1. noop d first, 2. define dd macro, 3. rebind d to half-down
-            bind index,pager d noop
-            macro index,pager dd "<modify-tags-then-hide>+trash -inbox -unread<enter><sync-mailbox>" "Move to trash (notmuch tags)"
-            bind index,pager,browser d half-down
 
             # Colors: left to user/stylix — no defaults here
           '';
