@@ -97,7 +97,7 @@
       };
 
       config = {
-        home.packages = [muttdownPkg pkgs.urlscan pkgs.goobook queryContactsPkg];
+        home.packages = [muttdownPkg pkgs.urlscan pkgs.goobook queryContactsPkg pkgs.w3m];
 
         programs.lieer.enable = lib.mkDefault true;
         programs.notmuch.enable = lib.mkDefault true;
@@ -157,6 +157,15 @@
           text = lib.mkDefault "sendmail: gmi send -t -C ${primaryAccount.maildir.absPath}";
         };
 
+        # Mailcap: w3m renders HTML inline, xdg-open handles attachments
+        xdg.configFile."mailcap".text = lib.mkDefault ''
+          text/html; ${pkgs.w3m}/bin/w3m -dump -T text/html -cols 80 -o display_borders=1 -o display_link=0 -s; nametemplate=%s.html; copiousoutput
+          application/*; xdg-open %s &; test=test -n "$DISPLAY"
+          image/*; xdg-open %s &; test=test -n "$DISPLAY"
+          video/*; xdg-open %s &; test=test -n "$DISPLAY"
+          audio/*; xdg-open %s &; test=test -n "$DISPLAY"
+        '';
+
         programs.neomutt = {
           vimKeys = lib.mkDefault true;
           sidebar = {
@@ -171,6 +180,7 @@
             spoolfile = lib.mkDefault "\"Inbox\"";
             nm_default_url = lib.mkDefault "\"notmuch://$HOME/Maildir\"";
             nm_db_limit = lib.mkDefault "\"5000\"";
+            mailcap_path = lib.mkDefault "\"~/.config/mailcap\"";
             use_envelope_from = lib.mkDefault "yes";
             query_command = lib.mkDefault "\"query-contacts %s\"";
             # Preserve query-contacts' match-quality ordering — neomutt defaults
@@ -276,7 +286,7 @@
             { map = ["browser"]; key = "h"; action = "<change-dir><kill-line>..<enter>"; }
           ];
 
-          extraConfig = lib.mkDefault ''
+          extraConfig = ''
             # Character encoding
             set send_charset="us-ascii:utf-8"
 
@@ -308,7 +318,8 @@
             set mime_type_query_command = "file --mime-type -b %s"
             auto_view text/html
             auto_view application/pgp-encrypted
-            alternative_order text/plain text/enriched text/html
+            unalternative_order *
+            alternative_order text/enriched text/html text/plain
             set display_filter = "tac | sed '/\\\[-- Autoview/,+1d' | tac"
 
             # Notmuch
