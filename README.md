@@ -1,5 +1,8 @@
 # Neomutt for Gmail
 
+<img width="2805" height="1572" alt="swappy-20260326-073945" src="https://github.com/user-attachments/assets/d1347145-4ff6-4bc8-8ca7-54c04756d711" />
+
+
 Neomutt is great to burn through email really fast. When email was hosted on disperate servers, we would all smash together sendmail, postfix and debate between `mbox` and `Maildir` formats. Imap was a great evolution to keep the data on the server, but for those of us using gmail, imap is a second class citizen.
 
 There have been some really nice initiatives to make things easier for those who want to access massive repositories of email, while using gmail (or Google Workspace) as your email provider.
