@@ -97,7 +97,7 @@
       };
 
       config = {
-        home.packages = [muttdownPkg pkgs.urlscan pkgs.goobook queryContactsPkg pkgs.w3m];
+        home.packages = [muttdownPkg pkgs.urlscan pkgs.goobook queryContactsPkg pkgs.w3m pkgs.catdoc pkgs.pandoc pkgs.poppler-utils];
 
         programs.lieer.enable = lib.mkDefault true;
         programs.notmuch.enable = lib.mkDefault true;
@@ -232,9 +232,13 @@
           };
         });
 
-        # Mailcap: w3m renders HTML inline, xdg-open handles attachments
+        # Mailcap: inline viewers for common types, xdg-open fallback for the rest
         xdg.configFile."mailcap".text = lib.mkDefault ''
-          text/html; ${pkgs.w3m}/bin/w3m -dump -T text/html -cols 80 -o display_borders=1 -o display_link=0 -s; nametemplate=%s.html; copiousoutput
+          text/html; ${pkgs.w3m}/bin/w3m -dump -T text/html -cols 120 -o display_borders=1 -o display_link=0 -s; nametemplate=%s.html; copiousoutput
+          application/msword; ${pkgs.catdoc}/bin/catdoc %s; copiousoutput
+          application/vnd.openxmlformats-officedocument.wordprocessingml.document; ${pkgs.pandoc}/bin/pandoc --from docx --to markdown %s; copiousoutput
+          application/vnd.oasis.opendocument.text; ${pkgs.pandoc}/bin/pandoc --from odt --to markdown %s; copiousoutput
+          application/pdf; ${pkgs.poppler-utils}/bin/pdftotext -layout %s -; copiousoutput
           application/*; xdg-open %s &; test=test -n "$DISPLAY"
           image/*; xdg-open %s &; test=test -n "$DISPLAY"
           video/*; xdg-open %s &; test=test -n "$DISPLAY"
@@ -393,6 +397,10 @@
             set mime_type_query_command = "file --mime-type -b %s"
             auto_view text/html
             auto_view application/pgp-encrypted
+            auto_view application/msword
+            auto_view application/vnd.openxmlformats-officedocument.wordprocessingml.document
+            auto_view application/vnd.oasis.opendocument.text
+            auto_view application/pdf
             unalternative_order *
             alternative_order text/enriched text/html text/plain
             set display_filter = "tac | sed '/\\\[-- Autoview/,+1d' | tac"
