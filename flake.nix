@@ -329,7 +329,7 @@
             { map = ["index" "pager"]; key = "c"; action = "<mail>"; }
 
             # Gmail tag operations
-            { map = ["index" "pager"]; key = "e"; action = "<modify-tags-then-hide>-inbox -unread<enter>"; }
+            { map = ["index" "pager"]; key = "e"; action = "<modify-tags-then-hide>-inbox -unread<enter><sync-mailbox>"; }
             { map = ["index" "pager"]; key = "E"; action = "<modify-tags>+inbox<enter>"; }
 
             # Virtual mailbox navigation
