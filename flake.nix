@@ -342,7 +342,7 @@
 
             # Utilities
             { map = ["index"]; key = "\\Cr"; action = "T~U<enter><tag-prefix><clear-flag>N<untag-pattern>.<enter>"; }
-            { map = ["index"]; key = "O"; action = "<shell-escape>notmuch new<enter>"; }
+            { map = ["index"]; key = "O"; action = "<shell-escape>systemctl --user start lieer-${primaryAccount.name}.service<enter>"; }
             { map = ["index"]; key = "\\Cf"; action = "<vfolder-from-query>"; }
             { map = ["index"]; key = "A"; action = "<limit>all<enter>"; }
 
