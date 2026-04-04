@@ -97,7 +97,7 @@
       };
 
       config = {
-        home.packages = [muttdownPkg pkgs.urlscan pkgs.goobook queryContactsPkg pkgs.w3m];
+        home.packages = [muttdownPkg pkgs.urlscan pkgs.goobook queryContactsPkg pkgs.w3m pkgs.catdoc pkgs.pandoc pkgs.poppler-utils];
 
         programs.lieer.enable = lib.mkDefault true;
         programs.notmuch.enable = lib.mkDefault true;
@@ -109,14 +109,45 @@
         # Override lieer systemd services to:
         # 1. Use --resume so interrupted full pulls continue where they left off
         # 2. Run notmuch new after sync so the index stays up to date
+        # 3. Watchdog-based liveness: kill only when gmi stops producing output
+        # 4. Generous burst limit to survive transient DNS/network issues
+        # 5. Memory cap to prevent runaway usage
         systemd.user.services = lib.mkMerge (map (account:
           let
             name = "lieer-${account.name}";
+            # Wrapper that pipes gmi output and pings the systemd watchdog on activity.
+            # If gmi goes silent for WatchdogSec, systemd kills it as stuck.
+            gmiWatchdog = pkgs.writeShellScript "gmi-watchdog" ''
+              set -o pipefail
+              ${pkgs.systemd}/bin/systemd-notify --ready
+              # stdbuf -oL: force line-buffered output so dots/messages flush
+              # through the pipe immediately instead of sitting in an 8KB buffer.
+              # read -r line: ping watchdog once per line (sufficient for 5m window).
+              ${pkgs.coreutils}/bin/stdbuf -oL \
+                ${pkgs.lieer}/bin/gmi sync --resume 2>&1 |
+              while IFS= read -r line; do
+                ${pkgs.systemd}/bin/systemd-notify WATCHDOG=1
+                printf '%s\n' "$line"
+              done
+            '';
           in {
             ${name} = {
+              Unit = {
+                After = [ "network-online.target" ];
+                Wants = [ "network-online.target" ];
+                StartLimitIntervalSec = 3600;
+                StartLimitBurst = 10;
+              };
               Service = {
-                ExecStart = lib.mkForce "${pkgs.lieer}/bin/gmi sync --resume";
+                ExecStart = lib.mkForce "${gmiWatchdog}";
                 ExecStartPost = "${pkgs.notmuch}/bin/notmuch --config=${config.home.homeDirectory}/.config/notmuch/default/config new";
+                Type = lib.mkForce "notify";
+                NotifyAccess = "all";
+                WatchdogSec = "5m";
+                Restart = "on-abnormal";
+                RestartSec = 60;
+                TimeoutStartSec = "infinity";
+                MemoryMax = "2G";
               };
             };
           }
@@ -201,9 +232,13 @@
           };
         });
 
-        # Mailcap: w3m renders HTML inline, xdg-open handles attachments
+        # Mailcap: inline viewers for common types, xdg-open fallback for the rest
         xdg.configFile."mailcap".text = lib.mkDefault ''
-          text/html; ${pkgs.w3m}/bin/w3m -dump -T text/html -cols 80 -o display_borders=1 -o display_link=0 -s; nametemplate=%s.html; copiousoutput
+          text/html; ${pkgs.w3m}/bin/w3m -dump -T text/html -cols 120 -o display_borders=1 -o display_link=0 -s; nametemplate=%s.html; copiousoutput
+          application/msword; ${pkgs.catdoc}/bin/catdoc %s; copiousoutput
+          application/vnd.openxmlformats-officedocument.wordprocessingml.document; ${pkgs.pandoc}/bin/pandoc --from docx --to markdown %s; copiousoutput
+          application/vnd.oasis.opendocument.text; ${pkgs.pandoc}/bin/pandoc --from odt --to markdown %s; copiousoutput
+          application/pdf; ${pkgs.poppler-utils}/bin/pdftotext -layout %s -; copiousoutput
           application/*; xdg-open %s &; test=test -n "$DISPLAY"
           image/*; xdg-open %s &; test=test -n "$DISPLAY"
           video/*; xdg-open %s &; test=test -n "$DISPLAY"
@@ -298,7 +333,7 @@
             { map = ["index" "pager"]; key = "c"; action = "<mail>"; }
 
             # Gmail tag operations
-            { map = ["index" "pager"]; key = "e"; action = "<modify-tags-then-hide>-inbox -unread<enter>"; }
+            { map = ["index" "pager"]; key = "e"; action = "<modify-tags-then-hide>-inbox -unread<enter><sync-mailbox>"; }
             { map = ["index" "pager"]; key = "E"; action = "<modify-tags>+inbox<enter>"; }
 
             # Virtual mailbox navigation
@@ -311,7 +346,7 @@
 
             # Utilities
             { map = ["index"]; key = "\\Cr"; action = "T~U<enter><tag-prefix><clear-flag>N<untag-pattern>.<enter>"; }
-            { map = ["index"]; key = "O"; action = "<shell-escape>notmuch new<enter>"; }
+            { map = ["index"]; key = "O"; action = "<shell-escape>systemctl --user start lieer-${primaryAccount.name}.service<enter>"; }
             { map = ["index"]; key = "\\Cf"; action = "<vfolder-from-query>"; }
             { map = ["index"]; key = "A"; action = "<limit>all<enter>"; }
 
@@ -362,6 +397,10 @@
             set mime_type_query_command = "file --mime-type -b %s"
             auto_view text/html
             auto_view application/pgp-encrypted
+            auto_view application/msword
+            auto_view application/vnd.openxmlformats-officedocument.wordprocessingml.document
+            auto_view application/vnd.oasis.opendocument.text
+            auto_view application/pdf
             unalternative_order *
             alternative_order text/enriched text/html text/plain
             set display_filter = "tac | sed '/\\\[-- Autoview/,+1d' | tac"
