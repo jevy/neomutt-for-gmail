@@ -109,14 +109,45 @@
         # Override lieer systemd services to:
         # 1. Use --resume so interrupted full pulls continue where they left off
         # 2. Run notmuch new after sync so the index stays up to date
+        # 3. Watchdog-based liveness: kill only when gmi stops producing output
+        # 4. Generous burst limit to survive transient DNS/network issues
+        # 5. Memory cap to prevent runaway usage
         systemd.user.services = lib.mkMerge (map (account:
           let
             name = "lieer-${account.name}";
+            # Wrapper that pipes gmi output and pings the systemd watchdog on activity.
+            # If gmi goes silent for WatchdogSec, systemd kills it as stuck.
+            gmiWatchdog = pkgs.writeShellScript "gmi-watchdog" ''
+              set -o pipefail
+              ${pkgs.systemd}/bin/systemd-notify --ready
+              # stdbuf -oL: force line-buffered output so dots/messages flush
+              # through the pipe immediately instead of sitting in an 8KB buffer.
+              # read -r line: ping watchdog once per line (sufficient for 5m window).
+              ${pkgs.coreutils}/bin/stdbuf -oL \
+                ${pkgs.lieer}/bin/gmi sync --resume 2>&1 |
+              while IFS= read -r line; do
+                ${pkgs.systemd}/bin/systemd-notify WATCHDOG=1
+                printf '%s\n' "$line"
+              done
+            '';
           in {
             ${name} = {
+              Unit = {
+                After = [ "network-online.target" ];
+                Wants = [ "network-online.target" ];
+                StartLimitIntervalSec = 3600;
+                StartLimitBurst = 10;
+              };
               Service = {
-                ExecStart = lib.mkForce "${pkgs.lieer}/bin/gmi sync --resume";
+                ExecStart = lib.mkForce "${gmiWatchdog}";
                 ExecStartPost = "${pkgs.notmuch}/bin/notmuch --config=${config.home.homeDirectory}/.config/notmuch/default/config new";
+                Type = lib.mkForce "notify";
+                NotifyAccess = "all";
+                WatchdogSec = "5m";
+                Restart = "on-abnormal";
+                RestartSec = 60;
+                TimeoutStartSec = "infinity";
+                MemoryMax = "2G";
               };
             };
           }
