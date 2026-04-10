@@ -232,8 +232,14 @@
           };
         });
 
-        # Mailcap: inline viewers for common types, xdg-open fallback for the rest
+        # Mailcap: GUI viewers for interactive use (view-mailcap / "l" key),
+        # then inline viewers with copiousoutput for auto_view preview
         xdg.configFile."mailcap".text = lib.mkDefault ''
+          text/html; firefox %s &; nametemplate=%s.html; test=test -n "$DISPLAY"
+          application/pdf; zathura %s &; test=test -n "$DISPLAY"
+          application/msword; xdg-open %s &; test=test -n "$DISPLAY"
+          application/vnd.openxmlformats-officedocument.wordprocessingml.document; xdg-open %s &; test=test -n "$DISPLAY"
+          application/vnd.oasis.opendocument.text; xdg-open %s &; test=test -n "$DISPLAY"
           text/html; ${pkgs.w3m}/bin/w3m -dump -T text/html -cols 120 -o display_borders=1 -o display_link=0 -s; nametemplate=%s.html; copiousoutput
           application/msword; ${pkgs.catdoc}/bin/catdoc %s; copiousoutput
           application/vnd.openxmlformats-officedocument.wordprocessingml.document; ${pkgs.pandoc}/bin/pandoc --from docx --to markdown %s; copiousoutput
